@@ -50,4 +50,4 @@ Then follow **docs/02-INSTALL.md** host by host.
 - Consoles are **never** published to the internet. Remote access = VPN (e.g. FortiGate IKEv2 dial-up).
 - Change versions only via the upgrade procedure in docs/04-OPERATIONS.md.
 
-Kit version: 0.1.0 (2026-10-28). Reference site: LRES.
+Kit version: 0.2.0 (2026-10-28). Reference site: LRES.

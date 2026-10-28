@@ -5,7 +5,6 @@
 |---|---|---|
 | Whole VMs | Proxmox `vzdump` to NAS (zstd, keep-last 1–2) — see host/pve/README.md | weekly (Sun 01:00 / 03:00) |
 | LibreNMS DB | `docker exec librenms_db sh -c 'mariadb-dump -u librenms -p"$MYSQL_PASSWORD" librenms' \| gzip > ~/backups/librenms-$(date +%F).sql.gz` | before every upgrade + weekly |
-| MeshCentral | `data/meshcentral-data` (certs/config!) + `mongodump` | weekly |
 | Graylog | MongoDB (config) via VM backup; log data is disposable by design (retention) | — |
 | Secrets | `secrets.env` in the password manager (not on the hosts only) | on change |
 

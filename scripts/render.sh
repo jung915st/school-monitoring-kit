@@ -29,8 +29,8 @@ fi
 rm -rf out && mkdir -p out/nms-vm out/log-vm out/revproxy/sites
 umask 077
 
-# ---- NMS VM: librenms (+smokeping) and meshcentral -------------------------
-for s in librenms meshcentral; do cp -r "stacks/$s" "out/nms-vm/$s"; done
+# ---- NMS VM: librenms (+smokeping) ------------------------------------------
+cp -r stacks/librenms out/nms-vm/librenms
 cat > out/nms-vm/librenms/.env <<EOF
 TZ=$TZ
 PUID=$PUID
@@ -43,15 +43,6 @@ envsubst < stacks/librenms/librenms.env.tmpl  > out/nms-vm/librenms/librenms.env
 envsubst < stacks/librenms/msmtpd.env.tmpl    > out/nms-vm/librenms/msmtpd.env
 envsubst '${STACK_DIR}' < stacks/librenms/logrotate.conf.tmpl > out/nms-vm/librenms/logrotate.conf
 rm -f out/nms-vm/librenms/*.tmpl
-cat > out/nms-vm/meshcentral/.env <<EOF
-TZ=$TZ
-MGMT_IP=$NMS_VM_IP
-MESH_HOSTNAME=$MESH_HOST
-TRUSTED_PROXY=$REVPROXY_IP
-REVPROXY_IP=$REVPROXY_IP
-MONGO_USERNAME=$MONGO_USERNAME
-MONGO_PASSWORD=$MONGO_PASSWORD
-EOF
 
 # ---- LOG VM: graylog + opensearch + grafana --------------------------------
 cp -r stacks/graylog out/log-vm/graylog
@@ -63,6 +54,11 @@ GFB_HOST=$GFB_HOST
 OPENSEARCH_HEAP=$OPENSEARCH_HEAP
 GRAYLOG_JOURNAL_MAX=$GRAYLOG_JOURNAL_MAX
 SYSLOG_UDP_PORT=$SYSLOG_UDP_PORT
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
+SMTP_USER=$SMTP_USER
+SMTP_PASSWORD=$SMTP_PASSWORD
+SMTP_FROM=$SMTP_FROM
 GRAYLOG_PASSWORD_SECRET=$GRAYLOG_PASSWORD_SECRET
 GRAYLOG_ROOT_PASSWORD_SHA2=$GRAYLOG_ROOT_PASSWORD_SHA2
 OPENSEARCH_ADMIN_PASS=$OPENSEARCH_ADMIN_PASS
@@ -80,7 +76,6 @@ vhost() { # name upstream max_body read_timeout
 }
 vhost "$NMS_HOST"   "http://$NMS_VM_IP:8000" 64m 300s
 vhost "$SMOKE_HOST" "http://$NMS_VM_IP:8081" 1m  60s
-vhost "$MESH_HOST"  "http://$NMS_VM_IP:8443" 0   3600s
 vhost "$GL_HOST"    "http://$LOG_VM_IP:9000" 64m 300s
 vhost "$GFB_HOST"   "http://$LOG_VM_IP:3000" 16m 300s
 cp -r stacks/reverse-proxy/snippets out/revproxy/
@@ -88,5 +83,3 @@ cp stacks/reverse-proxy/default-443.conf stacks/reverse-proxy/connection-upgrade
 
 echo "Rendered for ${SITE_CODE} (profile ${PROFILE}):"
 find out -type f | sort | sed 's/^/  /'
-echo
-echo "MeshCentral note: agents must reach https://${MESH_HOST}/ — if PCs are outside LAN_CIDRS, add their ranges."

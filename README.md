@@ -1,18 +1,16 @@
 # School Monitoring Kit
 
-A ready-to-deploy, containerized monitoring stack for a school LAN, based on the setup running at
+A ready-to-deploy, containerized **switch and network monitoring** stack for a school LAN (SNMP + switch logs), based on the setup running at
 LRES (Taichung) since 2025–2026. One folder, one settings file, pinned versions, no secrets.
 
 | Component | What it gives you | Host |
 |---|---|---|
 | **LibreNMS** 26.9 (+ dispatcher, snmptrapd, MariaDB, Redis, msmtpd) | SNMP polling of switches/firewall/servers, port graphs, alerts by email, weather maps | NMS VM |
 | **SmokePing** 2.9 | latency / packet-loss charts for lines and core devices | NMS VM |
-| **MeshCentral** 1.2 (+ MongoDB) | remote desktop / management of school PCs | NMS VM |
-| **Graylog** 6.1 (+ OpenSearch 2.18, MongoDB 7) | central syslog search, streams, alerts | Log VM |
+| **Graylog** 6.1 (+ OpenSearch 2.18, MongoDB 7) | central switch/firewall syslog: search, streams, link-flap alerts | Log VM |
 | **Grafana** 13 | dashboards on Graylog data | Log VM |
 | **nginx reverse proxy** + wildcard Let's Encrypt cert | one HTTPS name per console, LAN-only | proxy VM/CT (or NMS VM) |
 | *optional* netmon | scheduled checks + status page/email digest | Log VM |
-| *optional* LDAP + FreeRADIUS | 802.1X Wi-Fi login with school accounts | small CT |
 
 ```
    switches / firewall / APs / servers
@@ -20,10 +18,10 @@ LRES (Taichung) since 2025–2026. One folder, one settings file, pinned version
         ▼                   ▼                        ▼
  ┌──────────── NMS VM ───────────┐      ┌────────────── Log VM ──────────────┐
  │ LibreNMS :8000  SmokePing :8081│      │ Graylog :9000  OpenSearch (local)  │
- │ MeshCentral :8443  snmptrapd   │      │ Grafana :3000  (netmon optional)   │
+ │ snmptrapd :162                 │      │ Grafana :3000  (netmon optional)   │
  └──────────────▲─────────────────┘      └───────────────▲────────────────────┘
                 └──────────── nginx reverse proxy (443) ──┘
-                     nms / sp / mesh / gl / gfb .<school domain>   (LAN / VPN only)
+                     nms / sp / gl / gfb .<school domain>   (LAN / VPN only)
 ```
 
 ## Profiles

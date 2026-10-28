@@ -14,7 +14,6 @@ add()  { have "$1" || { echo "$1=$2" >> "$OUT"; echo "  + $1"; }; }
 
 echo "Writing new secrets to $OUT (existing ones are kept):"
 add MYSQL_PASSWORD          "$(rand 32)"
-add MONGO_PASSWORD          "$(rand 32)"
 add GRAYLOG_PASSWORD_SECRET "$(rand 96)"
 add OPENSEARCH_ADMIN_PASS   "Os1-$(rand 28)"     # OpenSearch wants upper/lower/digit/symbol
 add GRAFANA_ADMIN_PASSWORD  "$(rand 24)"

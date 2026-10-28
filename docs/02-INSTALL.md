@@ -42,12 +42,11 @@ cd /opt/stacks/graylog && chmod 600 .env && docker compose up -d && docker compo
 Then in Graylog (http://<LOG_VM_IP>:9000 until the proxy exists; user `admin`, password = the plain
 value gen-secrets.sh printed): follow **stacks/graylog/SETUP.md** (syslog input, index sets, streams).
 
-## 3. NMS VM — LibreNMS + SmokePing, MeshCentral
+## 3. NMS VM — LibreNMS + SmokePing
 ```bash
 scp -r out/nms-vm/* <user>@<NMS_VM_IP>:/opt/stacks/
 ssh <user>@<NMS_VM_IP>
 cd /opt/stacks/librenms    && chmod 600 .env *.env && mkdir -p data/storage-logs/{web,dispatcher,snmptrapd} && docker compose up -d
-cd /opt/stacks/meshcentral && chmod 600 .env && docker compose up -d
 # logrotate for LibreNMS Laravel logs (per-user cron; works with SELinux)
 mkdir -p ~/logrotate && cp /opt/stacks/librenms/logrotate.conf ~/logrotate/librenms-storage-logs.conf
 ( crontab -l 2>/dev/null; echo '17 * * * * /usr/sbin/logrotate -s $HOME/logrotate/state $HOME/logrotate/librenms-storage-logs.conf >> $HOME/logrotate/cron.log 2>&1' ) | crontab -
@@ -55,7 +54,6 @@ mkdir -p ~/logrotate && cp /opt/stacks/librenms/logrotate.conf ~/logrotate/libre
 - LibreNMS first start takes 1–3 minutes (DB migration). Create the admin user:
   `docker exec -it librenms lnms user:add -r admin -p '<pw>' admin` (or the web installer).
 - SmokePing: after first start copy `Targets.example` → `data/smokeping/config/Targets`, edit, `docker restart smokeping`.
-- MeshCentral: temporarily set `ALLOW_NEW_ACCOUNTS: "true"`, create the first (admin) account, set back to `"false"`, `docker compose up -d`.
 
 ## 4. Reverse proxy
 1. Certificate: **stacks/reverse-proxy/ACME.md**.
@@ -69,7 +67,7 @@ sudo cp out/revproxy/sites/*.conf /etc/nginx/conf.d/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 3. Lock the Docker hosts' console ports to the proxy IP (docs/01-PLAN.md firewall section).
-4. Note: reloading nginx can drop long-lived sessions (MeshCentral, PVE console) — do it in quiet hours.
+4. Note: reloading nginx can drop long-lived sessions (Graylog live search, PVE console) — do it in quiet hours.
 
 ## 5. First configuration
 - **LibreNMS**: Settings → SNMP (v2c community or v3), add devices (`lnms device:add <ip>` or UI),
@@ -81,7 +79,7 @@ sudo nginx -t && sudo systemctl reload nginx
 - **Devices**: docs/03-NETWORK-PREP.md.
 
 ## 6. Verify
-- [ ] https://nms, https://gl, https://gfb, https://sp, https://mesh open from the LAN with a valid certificate
+- [ ] https://nms, https://gl, https://gfb, https://sp open from the LAN with a valid certificate
 - [ ] A switch shows up in LibreNMS with port graphs after 10 minutes
 - [ ] `logger -n <LOG_VM_IP> -P 514 test-from-$(hostname)` appears in Graylog search
 - [ ] A test alert mail arrives (LibreNMS → Alerts → Alert transports → Test)

@@ -18,7 +18,7 @@ if [ "$ROLE" != nms ]; then
   m=$(sysctl -n vm.max_map_count); [ "$m" -ge 262144 ] && ok "vm.max_map_count=$m" || bad "vm.max_map_count=$m (need 262144 for OpenSearch)"
 fi
 
-for p in 8000 8081 8443 162 9000 3000 514; do
+for p in 8000 8081 162 9000 3000 514; do
   ss -lntu 2>/dev/null | awk '{print $5}' | grep -qE "[:.]$p$" && warn "port $p already in use"
 done
 

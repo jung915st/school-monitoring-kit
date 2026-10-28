@@ -16,3 +16,26 @@
    "Servers / host checks". Share read-only with a viewer user for colleagues.
 5. **Users**: create a personal admin account; keep the built-in `admin` for emergencies.
 6. **Time zone**: user profile → Asia/Taipei (stack default is `GRAYLOG_TIMEZONE=${TZ}`).
+
+## Switch-log essentials (the main purpose of this kit)
+**Stream "Network switches"**: rule `gl2_remote_ip` matches each switch management IP (or a CIDR via
+a regex on `gl2_remote_ip`). Remove matches from the Default stream if you want a separate index set.
+
+Useful searches (save them as Saved Searches):
+
+| What | Query |
+|---|---|
+| Cisco IOS link up/down | `message:"%LINK-3-UPDOWN" OR message:"%LINEPROTO-5-UPDOWN"` |
+| Cisco err-disable / STP | `message:"%PM-4-ERR_DISABLE" OR message:"%SPANTREE"` |
+| Aruba/ProCurve link | `message:"is now on-line" OR message:"is now off-line"` |
+| Aruba/ProCurve loop / STP | `message:"loop" OR message:"mstp"` |
+| HPE Comware link | `message:"PHY_UPDOWN" OR message:"LINK_UPDOWN"` |
+| ZyXEL link | `message:"link up" OR message:"link down"` |
+| Optics / CRC | `message:"CRC" OR message:"transceiver" OR message:"SFP"` |
+
+**Alert on uplink flaps** (Alerts → Event Definitions → Filter & Aggregation):
+- Query: the link query for your vendor AND the uplink port name (e.g. `message:"GigabitEthernet1/0/28"`),
+  stream "Network switches".
+- Search within the last 10 minutes, run every 5 minutes, aggregate `count() >= 2` (two downs in 10 min = flapping).
+- Notification: Email to `ALERT_TO` (Graylog already uses the SMTP relay from site.env — port 587 STARTTLS), or an HTTP notification.
+- One event definition per core/edge uplink keeps the alert text precise ("edge720 uplink flapping").

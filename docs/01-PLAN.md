@@ -14,7 +14,6 @@ Proxmox is optional; any hypervisor or bare metal works. Give every host a **sta
 |---|---|---|
 | `nms.<domain>` | LibreNMS | NMS_VM_IP:8000 |
 | `sp.<domain>` | SmokePing | NMS_VM_IP:8081 |
-| `mesh.<domain>` | MeshCentral | NMS_VM_IP:8443 |
 | `gl.<domain>` | Graylog | LOG_VM_IP:9000 |
 | `gfb.<domain>` | Grafana | LOG_VM_IP:3000 |
 
@@ -25,10 +24,9 @@ Proxmox is optional; any hypervisor or bare metal works. Give every host a **sta
 | NMS VM | all monitored hosts | ICMP | availability + SmokePing |
 | devices | NMS VM | UDP/TCP 162 | SNMP traps |
 | devices | Log VM | UDP 514 (or TCP 5140) | syslog |
-| reverse proxy | NMS VM | TCP 8000, 8081, 8443 | consoles |
+| reverse proxy | NMS VM | TCP 8000, 8081 | consoles |
 | reverse proxy | Log VM | TCP 9000, 3000 | consoles |
 | LAN admins / VPN pool | reverse proxy | TCP 443 (80 → redirect) | HTTPS |
-| school PCs (agents) | reverse proxy | TCP 443 | MeshCentral agents |
 | NMS VM | SMTP relay | TCP 587 | alert mail |
 | all hosts | NTP server | UDP 123 | correct timestamps |
 

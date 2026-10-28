@@ -1,0 +1,35 @@
+# nginx vhost for one console (rendered once per service by scripts/render.sh)
+#   ${SERVER_NAME} -> ${UPSTREAM}
+# LAN-only: only LAN_CIDRS (and the VPN pool, if you add it) may reach it.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${SERVER_NAME};
+${ALLOW_LINES}
+    deny all;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    # 'listen ... ssl http2' works on nginx 1.18-1.28 (newer versions only warn; they prefer 'http2 on;')
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${SERVER_NAME};
+
+    ssl_certificate     ${CERT_DIR}/fullchain.pem;
+    ssl_certificate_key ${CERT_DIR}/key.pem;
+    include /etc/nginx/snippets/ssl-params.conf;
+    include /etc/nginx/snippets/security-headers.conf;
+
+${ALLOW_LINES}
+    deny all;
+
+    client_max_body_size ${MAX_BODY};
+    proxy_read_timeout   ${READ_TIMEOUT};
+    proxy_send_timeout   ${READ_TIMEOUT};
+
+    location / {
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass ${UPSTREAM};
+    }
+}

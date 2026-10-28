@@ -1,0 +1,13 @@
+# never commit filled-in values or secrets
+site.env
+secrets.env
+*.env
+!*.env.example
+!profiles/*.env
+.env
+out/
+data/
+stacks/*/data/
+*.pem
+*.key
+*.bak*

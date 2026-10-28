@@ -1,0 +1,144 @@
+# LibreNMS + SmokePing — network device monitoring (SNMP), latency charts.
+# Based on the official librenms/docker example (app + db + redis + msmtpd + dispatcher + snmptrapd).
+# The syslog-ng sidecar stays OFF: device syslog goes to Graylog (UDP 514 on the log VM).
+#
+# Values come from ./.env (written by scripts/render.sh from site.env + secrets.env):
+#   TZ PUID PGID MGMT_IP MYSQL_PASSWORD
+# All listeners bind to MGMT_IP only (never 0.0.0.0). Consoles are reached through the reverse proxy.
+#
+# Lessons from LRES baked in:
+#   - Laravel logs on a host volume (data/storage-logs/*) + logrotate  (33 GB laravel.log, 2026-10-10)
+#   - docker json-file log caps on every container
+#   - every image pinned; upgrade deliberately (docs/04-OPERATIONS.md)
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+x-librenms-env: &librenms-env
+  TZ: ${TZ}
+  PUID: ${PUID}
+  PGID: ${PGID}
+  DB_HOST: db
+  DB_NAME: librenms
+  DB_USER: librenms
+  DB_PASSWORD: ${MYSQL_PASSWORD}
+  DB_TIMEOUT: "60"
+
+x-librenms-common: &librenms-common
+  image: librenms/librenms:26.9.1.1
+  env_file:
+    - ./librenms.env
+  cap_add:
+    - NET_ADMIN
+    - NET_RAW
+  depends_on:
+    - db
+    - redis
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  db:
+    image: mariadb:11.4
+    container_name: librenms_db
+    command:
+      - "mariadbd"
+      - "--innodb-file-per-table=1"
+      - "--lower-case-table-names=0"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    environment:
+      TZ: ${TZ}
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: librenms
+      MYSQL_USER: librenms
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./data/db:/var/lib/mysql
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: librenms_redis
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    logging: *logging
+
+  msmtpd:
+    image: crazymax/msmtpd:1.8.34
+    container_name: librenms_msmtpd
+    env_file:
+      - ./msmtpd.env
+    restart: unless-stopped
+    logging: *logging
+
+  # SmokePing: LibreNMS reads its RRDs (read-only) for the device "Latency" tab.
+  # The firewall must allow ICMP from MGMT_IP to every target you probe.
+  smokeping:
+    image: lscr.io/linuxserver/smokeping:2.9.0-r0-ls180
+    container_name: smokeping
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    volumes:
+      - ./data/smokeping/config:/config
+      - ./data/smokeping/data:/data
+    ports:
+      - "${MGMT_IP}:8081:80"
+    restart: unless-stopped
+    logging: *logging
+
+  librenms:
+    <<: *librenms-common
+    container_name: librenms
+    hostname: librenms
+    environment:
+      <<: *librenms-env
+    volumes:
+      - ./data/librenms:/data
+      - ./data/smokeping/data:/var/lib/smokeping:ro
+      - ./data/storage-logs/web:/opt/librenms/storage/logs
+    ports:
+      - "${MGMT_IP}:8000:8000"
+    depends_on:
+      - db
+      - redis
+      - msmtpd
+
+  # At least one dispatcher is MANDATORY or nothing gets polled.
+  dispatcher:
+    <<: *librenms-common
+    container_name: librenms_dispatcher
+    hostname: librenms-dispatcher
+    environment:
+      <<: *librenms-env
+      DISPATCHER_NODE_ID: dispatcher1
+      SIDECAR_DISPATCHER: "1"
+    volumes:
+      - ./data/librenms:/data
+      - ./data/smokeping/data:/var/lib/smokeping:ro
+      - ./data/storage-logs/dispatcher:/opt/librenms/storage/logs
+
+  # SNMP trap receiver (UDP/TCP 162).
+  snmptrapd:
+    <<: *librenms-common
+    container_name: librenms_snmptrapd
+    hostname: librenms-snmptrapd
+    environment:
+      <<: *librenms-env
+      SIDECAR_SNMPTRAPD: "1"
+    volumes:
+      - ./data/librenms:/data
+      - ./data/smokeping/data:/var/lib/smokeping:ro
+      - ./data/storage-logs/snmptrapd:/opt/librenms/storage/logs
+    ports:
+      - "${MGMT_IP}:162:162/udp"
+      - "${MGMT_IP}:162:162/tcp"

@@ -1,0 +1,14 @@
+# LibreNMS Laravel logs (host volume data/storage-logs/*). Disk-full guard.
+# Install for the stack owner (works with SELinux enforcing, unlike a copy in /etc/logrotate.d):
+#   mkdir -p ~/logrotate && cp logrotate.conf ~/logrotate/librenms-storage-logs.conf
+#   crontab -e:
+#   17 * * * * /usr/sbin/logrotate -s $HOME/logrotate/state $HOME/logrotate/librenms-storage-logs.conf >> $HOME/logrotate/cron.log 2>&1
+${STACK_DIR}/librenms/data/storage-logs/*/*.log {
+    weekly
+    maxsize 500M
+    rotate 1
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: Graylog OpenSearch
+    uid: graylog-opensearch
+    type: grafana-opensearch-datasource
+    access: proxy
+    url: http://graylog-opensearch:9200
+    isDefault: true
+    editable: true
+    jsonData:
+      database: "graylog_*"
+      flavor: opensearch
+      version: 2.18.0
+      timeField: "timestamp"
+      pplEnabled: true
+      maxConcurrentShardRequests: 5

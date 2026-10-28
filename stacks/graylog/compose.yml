@@ -1,0 +1,93 @@
+# Graylog 6.1 + OpenSearch 2.18 + MongoDB 7 + Grafana — central syslog for switches, firewall, servers.
+# Values come from ./.env (rendered): TZ DATA_ROOT GL_HOST GFB_HOST OPENSEARCH_HEAP GRAYLOG_JOURNAL_MAX
+#   SYSLOG_UDP_PORT GRAYLOG_PASSWORD_SECRET GRAYLOG_ROOT_PASSWORD_SHA2 OPENSEARCH_ADMIN_PASS GRAFANA_ADMIN_PASSWORD
+#
+# Host prep (docs/02-INSTALL.md): vm.max_map_count=262144, DATA_ROOT on a big disk,
+#   mkdir -p ${DATA_ROOT}/graylog/{mongo,opensearch,graylog} ${DATA_ROOT}/grafana
+#   chown 1000:1000 ${DATA_ROOT}/graylog/opensearch; chown 1100:1100 ${DATA_ROOT}/graylog/graylog; chown 472:472 ${DATA_ROOT}/grafana
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+  graylog-mongo:
+    image: mongo:7.0
+    container_name: graylog-mongo
+    restart: unless-stopped
+    networks: [graylog-net]
+    volumes:
+      - ${DATA_ROOT}/graylog/mongo:/data/db
+    logging: *logging
+
+  graylog-opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    container_name: graylog-opensearch
+    restart: unless-stopped
+    environment:
+      - cluster.name=graylog
+      - node.name=opensearch1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - action.auto_create_index=false
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP} -Xmx${OPENSEARCH_HEAP}"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASS}
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - ${DATA_ROOT}/graylog/opensearch:/usr/share/opensearch/data
+    networks: [graylog-net]
+    ports:
+      - "127.0.0.1:9200:9200"     # local only
+    logging: *logging
+
+  graylog:
+    image: graylog/graylog:6.1
+    container_name: graylog
+    restart: unless-stopped
+    depends_on: [graylog-mongo, graylog-opensearch]
+    environment:
+      - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
+      - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
+      - GRAYLOG_MESSAGE_JOURNAL_MAX_SIZE=${GRAYLOG_JOURNAL_MAX}
+      - GRAYLOG_HTTP_EXTERNAL_URI=https://${GL_HOST}/
+      - GRAYLOG_MONGODB_URI=mongodb://graylog-mongo:27017/graylog
+      - GRAYLOG_ELASTICSEARCH_HOSTS=http://graylog-opensearch:9200
+      - GRAYLOG_TIMEZONE=${TZ}
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_ROOT}/graylog/graylog:/usr/share/graylog/data
+    ports:
+      - "9000:9000/tcp"                          # web/API (reverse proxy only; firewall it)
+      - "${SYSLOG_UDP_PORT}:1514/udp"            # Syslog UDP input (create it on 1514 in the UI)
+      - "5140:5140/tcp"                          # Syslog TCP input (optional)
+    networks: [graylog-net]
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:13.0.2
+    container_name: grafana
+    restart: unless-stopped
+    depends_on: [graylog-opensearch]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_INSTALL_PLUGINS=grafana-opensearch-datasource
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://${GFB_HOST}/
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_ROOT}/grafana:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000/tcp"            # reverse proxy only; firewall it
+    networks: [graylog-net]
+    logging: *logging
+
+networks:
+  graylog-net:
+    driver: bridge
